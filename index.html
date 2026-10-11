@@ -1,1 +1,135 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مطعم مذاق التوث</title>
+<style>
+body{font-family:Arial,Tahoma;background:#f1f3f6;margin:0;color:#182338}
+header{background:#17263e;color:white;text-align:center;padding:20px}
+main{padding:15px;max-width:900px;margin:auto}
+h2{font-size:20px}
+#menu{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+button{border:0;border-radius:10px;padding:13px;font-size:16px;cursor:pointer}
+.food{background:white;border:1px solid #ddd;text-align:right}
+.food b{display:block;margin-bottom:8px}
+.price{color:#16835b}
+.panel{background:white;border-radius:12px;padding:15px;margin-top:15px}
+.line{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #eee}
+.action{width:100%;background:#f39a32;margin-top:10px;font-weight:bold}
+.secondary{width:100%;background:#17263e;color:white;margin-top:10px}
+input{width:100%;padding:12px;box-sizing:border-box;border:1px solid #ccc;border-radius:8px;margin-top:7px;font-size:16px}
+</style>
+</head>
+<body>
+<header>
+<h1>مطعم مذاق التوث</h1>
+<p>نظام الكاشير | الدينار العراقي</p>
+</header>
+<main>
+<section class="panel">
+<h2>قائمة الطعام</h2>
+<div id="menu"></div>
+</section>
+<section class="panel">
+<h2>الطلب الحالي</h2>
+<label>رقم الطاولة أو اسم الزبون</label>
+<input id="customer" placeholder="مثلاً طاولة 1 أو سفري">
+<div id="cart"></div>
+<h2 id="total">الإجمالي: 0 د.ع</h2>
+<button class="action" onclick="checkout()">حفظ وطباعة الفاتورة</button>
+<button class="secondary" onclick="printKitchen()">طباعة طلب المطبخ</button>
+<button class="secondary" onclick="clearCart()">إلغاء الطلب</button>
+</section>
+<section class="panel">
+<h2>إضافة صنف جديد</h2>
+<input id="newName" placeholder="اسم الوجبة">
+<input id="newPrice" type="number" placeholder="السعر بالدينار">
+<button class="action" onclick="addFood()">إضافة الصنف</button>
+<button class="secondary" onclick="backup()">تنزيل نسخة احتياطية</button>
+</section>
+<section class="panel">
+<h2>الطابعات</h2>
+<p>فاتورة الزبون: 192.168.0.101</p>
+<p>طابعة المطبخ: 192.168.0.100</p>
+<p>الطباعة الحالية تتم عبر نافذة الطباعة في المتصفح.</p>
+</section>
+</main>
+<script>
+const initial=[
+{name:"برغر",price:5000},
+{name:"برغر دبل",price:7500},
+{name:"شاورما",price:3000},
+{name:"صاج دجاج",price:4000},
+{name:"بطاطا",price:1500},
+{name:"بيبسي",price:750}
+];
+let foods=JSON.parse(localStorage.getItem("foods")||"null")||initial;
+let cart=[];
+let orders=JSON.parse(localStorage.getItem("orders")||"[]");
+const money=n=>Number(n).toLocaleString("en-US")+" د.ع";
+function save(){
+localStorage.setItem("foods",JSON.stringify(foods));
+localStorage.setItem("orders",JSON.stringify(orders));
+}
+function render(){
+document.getElementById("menu").innerHTML=foods.map((f,i)=>
+`<button class="food" onclick="addToCart(${i})"><b>${f.name}</b><span class="price">${money(f.price)}</span></button>`).join("");
+document.getElementById("cart").innerHTML=cart.map((f,i)=>
+`<div class="line"><span>${f.name} × ${f.qty}</span><span>${money(f.price*f.qty)} <button onclick="removeItem(${i})">−</button></span></div>`).join("");
+document.getElementById("total").textContent="الإجمالي: "+money(cart.reduce((s,f)=>s+f.price*f.qty,0));
+}
+function addToCart(i){
+let found=cart.find(f=>f.name===foods[i].name);
+if(found)found.qty++;
+else cart.push({...foods[i],qty:1});
+render();
+}
+function removeItem(i){cart.splice(i,1);render()}
+function clearCart(){cart=[];document.getElementById("customer").value="";render()}
+function addFood(){
+let name=document.getElementById("newName").value.trim();
+let price=Number(document.getElementById("newPrice").value);
+if(!name||price<0||!document.getElementById("newPrice").value){alert("أدخل الاسم والسعر");return}
+foods.push({name,price});save();render();
+document.getElementById("newName").value="";
+document.getElementById("newPrice").value="";
+}
+function receipt(kitchen=false){
+let total=cart.reduce((s,f)=>s+f.price*f.qty,0);
+let rows=cart.map(f=>`<p>${f.name} × ${f.qty} ${kitchen?"":" — "+money(f.price*f.qty)}</p>`).join("");
+return `<div style="font-family:Arial;text-align:center;direction:rtl">
+<h2>مطعم مذاق التوث</h2><p>${kitchen?"طلب المطبخ":"فاتورة الزبون"}</p>
+<p>${new Date().toLocaleString("ar-IQ")}</p>
+<p>${document.getElementById("customer").value||"سفري"}</p><hr>${rows}<hr>
+${kitchen?"":"<h3>الإجمالي: "+money(total)+"</h3>"}
+<p>شكراً لزيارتكم</p></div>`;
+}
+function printContent(content){
+let w=window.open("","_blank");
+if(!w){alert("اسمح بالنوافذ المنبثقة في Chrome");return}
+w.document.write("<html lang='ar' dir='rtl'><meta charset='UTF-8'><body>"+content+"</body></html>");
+w.document.close();w.focus();w.print();
+}
+function checkout(){
+if(!cart.length){alert("أضف وجبات أولاً");return}
+orders.unshift({date:new Date().toISOString(),customer:document.getElementById("customer").value,items:cart,total:cart.reduce((s,f)=>s+f.price*f.qty,0)});
+save();printContent(receipt());clearCart();
+}
+function printKitchen(){
+if(!cart.length){alert("الطلب فارغ");return}
+printContent(receipt(true));
+}
+function backup(){
+let data={foods,orders};
+let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+let a=document.createElement("a");a.href=URL.createObjectURL(blob);
+a.download="mathaq-pos-backup.json";a.click();URL.revokeObjectURL(a.href);
+}
+render();
+</script>
+</body>
+</html>
+
+
